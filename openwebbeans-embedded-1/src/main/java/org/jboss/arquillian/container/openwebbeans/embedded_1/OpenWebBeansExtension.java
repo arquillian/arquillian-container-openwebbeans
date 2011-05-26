@@ -17,37 +17,22 @@
  */
 package org.jboss.arquillian.container.openwebbeans.embedded_1;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-
-import org.jboss.arquillian.spi.Profile;
+import org.jboss.arquillian.container.spi.client.container.DeployableContainer;
+import org.jboss.arquillian.core.spi.LoadableExtension;
 
 /**
- * OpenWebbeansProfile
+ * OpenWebBeansExtension
  *
  * @author <a href="mailto:aslak@redhat.com">Aslak Knutsen</a>
  * @version $Revision: $
  */
-public class OpenWebBeansProfile implements Profile
+public class OpenWebBeansExtension implements LoadableExtension
 {
-   /* (non-Javadoc)
-    * @see org.jboss.arquillian.spi.Profile#getClientProfile()
-    */
    @Override
-   public Collection<Class<?>> getClientProfile()
+   public void register(ExtensionBuilder builder)
    {
-      List<Class<?>> extensions = new ArrayList<Class<?>>();
-      extensions.add(LifecycleScopeHandler.class);
-      return extensions;
+      builder.service(DeployableContainer.class, OpenWebBeansSEContainer.class)
+             .observer(LifecycleScopeHandler.class);
    }
-   
-   /* (non-Javadoc)
-    * @see org.jboss.arquillian.spi.Profile#getContainerProfile()
-    */
-   @Override
-   public Collection<Class<?>> getContainerProfile()
-   {
-      return new ArrayList<Class<?>>();
-   }
+
 }
