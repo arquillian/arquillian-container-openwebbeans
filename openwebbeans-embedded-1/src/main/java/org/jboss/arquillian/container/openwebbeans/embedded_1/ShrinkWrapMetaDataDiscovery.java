@@ -53,7 +53,7 @@ public class ShrinkWrapMetaDataDiscovery extends AbstractMetaDataDiscovery
    }
 
    @Override
-   protected void configure() throws Exception
+   protected void configure()
    {
       Map<ArchivePath, Node> beansXmls = archive.getContent(Filters.include("/META-INF/beans.xml"));
 	  boolean beansXmlPresent = false;
