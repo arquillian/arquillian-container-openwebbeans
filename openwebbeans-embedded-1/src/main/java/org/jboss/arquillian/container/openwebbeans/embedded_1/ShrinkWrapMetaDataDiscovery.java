@@ -28,6 +28,9 @@ import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ArchivePath;
 import org.jboss.shrinkwrap.api.Filters;
 import org.jboss.shrinkwrap.api.Node;
+import org.jboss.shrinkwrap.api.spec.JavaArchive;
+import org.jboss.shrinkwrap.api.spec.WebArchive;
+import org.jboss.shrinkwrap.impl.base.asset.ArchiveAsset;
 
 /**
  * A ScannerService implementation that processes a ShrinkWrap bean archive
@@ -41,67 +44,148 @@ import org.jboss.shrinkwrap.api.Node;
  * processed as managed bean classes.</p>
  *
  * @author <a href="mailto:dan.allen@mojavelinux.com">Dan Allen</a>
+ * @author <a href="mailto:struberg@apache.org">Mark Struberg</a>
  */
 public class ShrinkWrapMetaDataDiscovery extends AbstractMetaDataDiscovery
 {
-   private Archive<?> archive;
+    private Archive<?> mainArchive;
 
-   public ShrinkWrapMetaDataDiscovery(Archive<?> archive)
-   {
-      super();
-      this.archive = archive;
-   }
+    public ShrinkWrapMetaDataDiscovery(Archive<?> mainArchive)
+    {
+        super();
+        this.mainArchive = mainArchive;
+    }
 
-   @Override
-   protected void configure()
-   {
-      Map<ArchivePath, Node> beansXmls = archive.getContent(Filters.include("/META-INF/beans.xml"));
-	  boolean beansXmlPresent = false;
-      for (final Map.Entry<ArchivePath, Node> entry : beansXmls.entrySet())
-      {
-         try
-         {
-            addWebBeansXmlLocation(
-                  new URL(null, "archive:/" + entry.getKey().get(), new URLStreamHandler()
-                  {
-                     @Override
-                     protected java.net.URLConnection openConnection(URL u) throws java.io.IOException
-                     {
-                        return new URLConnection(u)
-                        {
-                           @Override
-                           public void connect() throws IOException {}
+    @Override
+    protected void configure()
+    {
+        scanArchive(mainArchive);
+    }
 
-                           @Override
-                           public InputStream getInputStream() throws IOException
-                           {
-                              return entry.getValue().getAsset().openStream();
-                           }
-                        };
-                     };
-                  }));
-		    beansXmlPresent = true;
-         }
-         catch (Exception e)
-         {
-            e.printStackTrace();
-         }
-      }
+    /**
+     * Scan the given Archive. The following types are supported:
+     *
+     * <ul>
+     *     <li>{@link JavaArchive}</li>
+     *     <li>{@link WebArchive}</li>
+     * </ul>
+     *
+     * We do not support EARs yet!
+     *
+     * @param archive to scan
+     */
+    private void scanArchive(Archive<?> archive)
+    {
+        boolean beansXmlPresent = false;
 
-	  if (beansXmlPresent)
-	  {
-         Map<ArchivePath, Node> classes = archive.getContent(Filters.include(".*\\.class"));
-         for (Map.Entry<ArchivePath, Node> classEntry : classes.entrySet())
-         {
+        if (archive instanceof WebArchive)
+        {
+            Map<ArchivePath, Node> beansXmls;
+            beansXmls = archive.getContent(Filters.include("/WEB-INF/beans.xml"));
+            beansXmlPresent |= parseBeansXmls(beansXmls);
+
+            // people might also add the marker file to WEB-INF/classes directly
+            beansXmls = archive.getContent(Filters.include("/WEB-INF/classes/META-INF/beans.xml"));
+            beansXmlPresent |= parseBeansXmls(beansXmls);
+
+            if (beansXmlPresent)
+            {
+                scanArchiveClasses(archive);
+            }
+
+            // and now we scan all contained JAR files from WEB-INF/lib
+            Map<ArchivePath, Node> jarFiles = archive.getContent(Filters.include("/WEB-INF/lib/.*\\.jar"));
+            for (Map.Entry<ArchivePath, Node> jarEntry : jarFiles.entrySet())
+            {
+                ArchiveAsset archiveAsset = (ArchiveAsset) jarEntry.getValue().getAsset();
+                Archive jarArchive = (JavaArchive) archiveAsset.getArchive();
+                scanArchive(jarArchive);
+            }
+
+
+        }
+        else if (archive instanceof JavaArchive)
+        {
+            Map<ArchivePath, Node> beansXmls;
+            beansXmls = archive.getContent(Filters.include("/META-INF/beans.xml"));
+            beansXmlPresent = parseBeansXmls(beansXmls);
+            if (beansXmlPresent)
+            {
+                scanArchiveClasses(archive);
+            }
+        }
+    }
+
+    /**
+     * Scan all the classes in the given Archive.
+     * @param archive
+     */
+    private void scanArchiveClasses(Archive<?> archive)
+    {
+        Map<ArchivePath, Node> classes = archive.getContent(Filters.include(".*\\.class"));
+        for (Map.Entry<ArchivePath, Node> classEntry : classes.entrySet())
+        {
             try
             {
-               getAnnotationDB().scanClass(classEntry.getValue().getAsset().openStream());
+                getAnnotationDB().scanClass(classEntry.getValue().getAsset().openStream());
             }
             catch (Exception e)
             {
-               throw new RuntimeException("Could not scan class", e);
+                throw new RuntimeException("Could not scan class", e);
             }
-         }
-	  }
-   }
+        }
+    }
+
+    /**
+     * Take all given archives and add the bean.xml files to the
+     * ScannerService.
+     * @param beansXmls
+     * @return <code>true</code> if at least one beans.xml has been parsed.
+     */
+    private boolean parseBeansXmls(Map<ArchivePath, Node> beansXmls)
+    {
+        boolean beansXmlPresent = false ;
+        for (final Map.Entry<ArchivePath, Node> entry : beansXmls.entrySet())
+        {
+            try
+            {
+                addWebBeansXmlLocation(
+                        new URL(null, "archive:/" + entry.getKey().get(), new URLStreamHandler()
+                        {
+                            @Override
+                            protected URLConnection openConnection(URL u) throws IOException
+                            {
+                                return new URLConnection(u)
+                                {
+                                    @Override
+                                    public void connect() throws IOException
+                                    {}
+
+                                    @Override
+                                    public InputStream getInputStream() throws IOException
+                                    {
+                                        return entry.getValue().getAsset().openStream();
+                                    }
+                                };
+                            };
+                        }));
+                beansXmlPresent = true;
+            }
+            catch (Exception e)
+            {
+                RuntimeException runtimeException;
+                if (e instanceof RuntimeException)
+                {
+                    runtimeException = (RuntimeException) e;
+                }
+                else
+                {
+                    runtimeException = new RuntimeException("Error while parsing beans.xml location", e);
+                }
+
+                throw runtimeException;
+            }
+        }
+        return beansXmlPresent;
+    }
 }

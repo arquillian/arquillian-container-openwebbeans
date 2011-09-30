@@ -15,7 +15,7 @@
     <description>OpenWebBeans 1.x Embedded Container integration for the Arquillian Project</description>
 
     <properties>
-        <version.openwebbeans>1.0.0</version.openwebbeans>
+        <version.openwebbeans>1.1.1</version.openwebbeans>
     </properties>
 
     <dependencyManagement>
