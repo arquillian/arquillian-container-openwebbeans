@@ -82,11 +82,11 @@ public class ShrinkWrapMetaDataDiscovery extends AbstractMetaDataDiscovery
         {
             Map<ArchivePath, Node> beansXmls;
             beansXmls = archive.getContent(Filters.include("/WEB-INF/beans.xml"));
-            beansXmlPresent |= parseBeansXmls(beansXmls);
+            beansXmlPresent |= parseBeansXmls(archive.getName(), beansXmls);
 
             // people might also add the marker file to WEB-INF/classes directly
             beansXmls = archive.getContent(Filters.include("/WEB-INF/classes/META-INF/beans.xml"));
-            beansXmlPresent |= parseBeansXmls(beansXmls);
+            beansXmlPresent |= parseBeansXmls(archive.getName(), beansXmls);
 
             if (beansXmlPresent)
             {
@@ -108,7 +108,7 @@ public class ShrinkWrapMetaDataDiscovery extends AbstractMetaDataDiscovery
         {
             Map<ArchivePath, Node> beansXmls;
             beansXmls = archive.getContent(Filters.include("/META-INF/beans.xml"));
-            beansXmlPresent = parseBeansXmls(beansXmls);
+            beansXmlPresent = parseBeansXmls(archive.getName(), beansXmls);
             if (beansXmlPresent)
             {
                 scanArchiveClasses(archive);
@@ -139,18 +139,21 @@ public class ShrinkWrapMetaDataDiscovery extends AbstractMetaDataDiscovery
     /**
      * Take all given archives and add the bean.xml files to the
      * ScannerService.
+     * @param archiveName is needed if multiple archives are used, e.g. in a WebArchive
      * @param beansXmls
      * @return <code>true</code> if at least one beans.xml has been parsed.
      */
-    private boolean parseBeansXmls(Map<ArchivePath, Node> beansXmls)
+    private boolean parseBeansXmls(String archiveName, Map<ArchivePath, Node> beansXmls)
     {
         boolean beansXmlPresent = false ;
         for (final Map.Entry<ArchivePath, Node> entry : beansXmls.entrySet())
         {
             try
             {
+                String urlLocation = "archive://" + archiveName + entry.getKey().get();
+
                 addWebBeansXmlLocation(
-                        new URL(null, "archive:/" + entry.getKey().get(), new URLStreamHandler()
+                        new URL(null, urlLocation, new URLStreamHandler()
                         {
                             @Override
                             protected URLConnection openConnection(URL u) throws IOException
