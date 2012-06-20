@@ -60,7 +60,14 @@ public class LifecycleScopeHandler
    
    public void destroyRequest(@Observes After event)
    {
-      ContextsService service = this.lifecycle.get().getContextService();
+      ContainerLifecycle lc = this.lifecycle.get();
+      if (lc == null)
+      {
+         // this may happen if there was a DeploymentError during CDI boot
+         return;
+      }
+
+      ContextsService service = lc.getContextService();
 
       service.endContext(ConversationScoped.class, null);
       service.endContext(RequestScoped.class, null);
@@ -68,7 +75,14 @@ public class LifecycleScopeHandler
 
    public void destroySession(@Observes BeforeUnDeploy event)
    {
-      ContextsService service = this.lifecycle.get().getContextService();
+      ContainerLifecycle lc = this.lifecycle.get();
+      if (lc == null)
+      {
+         // this may happen if there was a DeploymentError during CDI boot
+         return;
+      }
+
+      ContextsService service = lc.getContextService();
 
       //service.endContext(ApplicationScoped.class, null);
       service.endContext(SessionScoped.class, null);

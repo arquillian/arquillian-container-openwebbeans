@@ -20,8 +20,10 @@ import java.util.Properties;
 
 import javax.enterprise.inject.spi.BeanManager;
 
+import org.apache.webbeans.config.WebBeansFinder;
 import org.apache.webbeans.lifecycle.StandaloneLifeCycle;
 import org.apache.webbeans.spi.ContainerLifecycle;
+import org.apache.webbeans.util.WebBeansUtil;
 import org.jboss.arquillian.container.spi.client.container.DeployableContainer;
 import org.jboss.arquillian.container.spi.client.container.DeploymentException;
 import org.jboss.arquillian.container.spi.client.container.LifecycleException;
@@ -128,6 +130,7 @@ public class OpenWebBeansSEContainer implements DeployableContainer<OpenWebBeans
       Thread.currentThread().setContextClassLoader(cl);
        */
       final ShrinkWrapMetaDataDiscovery discovery = new ShrinkWrapMetaDataDiscovery(archive);
+
       ContainerLifecycle lifecycle = new StandaloneLifeCycle()
       {
          /**
@@ -149,7 +152,8 @@ public class OpenWebBeansSEContainer implements DeployableContainer<OpenWebBeans
       }
       catch (Exception e)
       {
-         throw new RuntimeException("Failed to start standalone OpenWebBeans container", e);
+          lifecycle.stopApplication(null);
+          throw new RuntimeException("Failed to start standalone OpenWebBeans container", e);
       }
 
       lifecycleProducer.set(lifecycle);
@@ -166,7 +170,7 @@ public class OpenWebBeansSEContainer implements DeployableContainer<OpenWebBeans
       ContainerLifecycle lifecycle = lifecycleProducer.get();
       if (lifecycle != null) {
          // end the session lifecycle
-         
+
          lifecycle.stopApplication(null);
          //Thread.currentThread().setContextClassLoader(Thread.currentThread().getContextClassLoader().getParent());
       }
